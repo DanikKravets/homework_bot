@@ -38,12 +38,12 @@ logging.basicConfig(
 
 
 def check_last_message(message):
-    """Exclusion of resending last message"""
+    """Exclusion of resending last message."""
     return message != LAST_MESSAGE
 
 
 def check_tokens():
-    """Checking for the presence of environment variables"""
+    """Checking for the presence of environment variables."""
     if (PRACTICUM_TOKEN is None
             or TELEGRAM_TOKEN is None or TELEGRAM_CHAT_ID is None):
         return False
@@ -51,7 +51,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Sends message to telegram chat"""
+    """Sends message to telegram chat."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug('Message sent')
@@ -64,7 +64,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Getting the API response"""
+    """Getting the API response."""
     payload = {'from_date': timestamp}
 
     try:
@@ -95,8 +95,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Checking response"""
-
+    """Checking response."""
     if not isinstance(response, dict):
         raise TypeError('API response is not dict')
 
@@ -115,7 +114,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Making message from API response"""
+    """Making message from API response."""
     if homework.get('homework_name') is None:
         raise KeyError('Homework_name key is unavailable')
     homework_name = homework.get('homework_name')
@@ -130,8 +129,7 @@ def parse_status(homework):
 
 
 def main():
-    """Main logics of bot`s work"""
-
+    """Main logics of bot`s work."""
     check_tokens()
     if check_tokens() is False:
         er_txt = (

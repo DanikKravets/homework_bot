@@ -7,7 +7,9 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import API_not_200
+from exceptions import APINot200
+import sys
+from http import HTTPStatus
 
 load_dotenv(override=True)
 
@@ -44,10 +46,12 @@ def check_last_message(message):
 
 def check_tokens():
     """Checking for the presence of environment variables."""
-    if (PRACTICUM_TOKEN is None
-            or TELEGRAM_TOKEN is None or TELEGRAM_CHAT_ID is None):
-        return False
-    return True
+    tokens = [
+        PRACTICUM_TOKEN,
+        TELEGRAM_TOKEN,
+        TELEGRAM_CHAT_ID
+    ]
+    return all(tokens)
 
 
 def send_message(bot, message):
@@ -55,12 +59,12 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug('Message sent')
+        LAST_MESSAGE = message
 
     except Exception as error:
         logging.error(f'Error during sending message {error}')
 
-    global LAST_MESSAGE
-    LAST_MESSAGE = message
+    return LAST_MESSAGE
 
 
 def get_api_answer(timestamp):
@@ -74,12 +78,12 @@ def get_api_answer(timestamp):
             params=payload
         )
 
-    except requests.RequestException(homework_statuses) as error:
+    except Exception(homework_statuses) as error:
         message = f'Error within request to API: {error}'
-        logging.error(message)
+        logging.error(message, exc_info=True)
         raise
 
-    if homework_statuses.status_code != 200:
+    if homework_statuses.status_code != HTTPStatus.OK:
 
         if isinstance(homework_statuses.json(), dict):
 
@@ -89,7 +93,7 @@ def get_api_answer(timestamp):
 
         err_msg = f'Код запроса не 200: {homework_statuses.status_code}.'
 
-        raise API_not_200(err_msg)
+        raise APINot200(err_msg)
     else:
         return homework_statuses.json()
 
@@ -103,11 +107,15 @@ def check_response(response):
         raise KeyError('Homework key unavailable')
 
     elif not isinstance(response.get('homeworks'), list):
-        raise TypeError('API response gives not a list by ke homeworks')
+        raise TypeError('API response gives not a list by key homeworks')
 
-    elif len(response.get('homeworks')) == 0:
+    elif not response.get('homeworks'):
         message = 'For previous 30 minutes user doesn`t have any HW'
         logging.DEBUG(message)
+
+    elif not isinstance(response.get('homeworks')[0], dict):
+        message = 'Homeworks is not dict'
+        logging.error(message)
 
     else:
         return response.get('homeworks')
@@ -130,14 +138,13 @@ def parse_status(homework):
 
 def main():
     """Main logics of bot`s work."""
-    check_tokens()
     if check_tokens() is False:
         er_txt = (
             'Missing neccecary env variable. '
             'Program stopped'
         )
         logging.critical(er_txt)
-        return None
+        sys.exit()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     min_ago = datetime.now() - timedelta(minutes=30)
@@ -147,23 +154,15 @@ def main():
         try:
 
             current_answer = get_api_answer(timestamp)
+            checked_answer = check_response(current_answer)
 
-            if isinstance(current_answer, dict):
-                checked_answer = check_response(current_answer)
-
-                if isinstance(checked_answer, list):
-                    for hw in checked_answer:
-                        if isinstance(current_answer, dict):
-
-                            message = parse_status(hw)
-                            if check_last_message(message):
-                                send_message(bot, message)
-                        else:
-                            logging.error('HW is not dict')
-            else:
-                logging.error('APi response incorrect')
+            for hw in checked_answer:
+                message = parse_status(hw)
+                if check_last_message(message):
+                    send_message(bot, message)
 
             timestamp = current_answer.get('current_date')
+
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(message)

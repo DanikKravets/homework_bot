@@ -81,7 +81,7 @@ def get_api_answer(timestamp):
     except Exception as error:
         message = f'Error within request to API: {error}'
         logging.error(message, exc_info=True)
-        raise APIRequestError(message)
+        raise APIRequestError(error)
 
     if homework_statuses.status_code != HTTPStatus.OK:
 

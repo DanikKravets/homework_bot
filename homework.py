@@ -7,7 +7,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import APINot200
+from exceptions import APINot200, APIRequestError
 import sys
 from http import HTTPStatus
 
@@ -39,9 +39,9 @@ logging.basicConfig(
 )
 
 
-def check_last_message(message):
+def check_last_message(message, last_message=LAST_MESSAGE):
     """Exclusion of resending last message."""
-    return message != LAST_MESSAGE
+    return message != last_message
 
 
 def check_tokens():
@@ -78,10 +78,10 @@ def get_api_answer(timestamp):
             params=payload
         )
 
-    except Exception(homework_statuses) as error:
+    except Exception as error:
         message = f'Error within request to API: {error}'
         logging.error(message, exc_info=True)
-        raise
+        raise APIRequestError(message)
 
     if homework_statuses.status_code != HTTPStatus.OK:
 
@@ -149,6 +149,7 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     min_ago = datetime.now() - timedelta(minutes=30)
     timestamp = time.mktime(min_ago.timetuple())
+    last_message_err = ''
 
     while True:
         try:
@@ -166,7 +167,10 @@ def main():
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(message)
-            bot.send_message(TELEGRAM_CHAT_ID, message)
+
+            if check_last_message(message, last_message_err):
+                bot.send_message(TELEGRAM_CHAT_ID, message)
+                last_message_err = message
 
         time.sleep(RETRY_PERIOD)
 
